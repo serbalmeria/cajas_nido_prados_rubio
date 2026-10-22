@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cajas nido — Prados del Rubio</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+html,body{height:100%;margin:0;font-family:Arial,sans-serif;color:#202124}
+#app{height:100%;display:flex;flex-direction:column}
+header{padding:10px 12px;background:#214f38;color:white;display:flex;gap:10px;align-items:center;flex-wrap:wrap;z-index:1000}
+header strong{font-size:16px} header small{opacity:.9}
+#controls{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+button,input{font-size:14px;padding:8px 10px;border:1px solid #bbb;border-radius:6px;background:#fff;color:#202124}
+button{cursor:pointer} button.primary{background:#e2f0e7;border-color:#b6d7c2}
+#search{width:150px} #status{font-size:12px;flex-basis:100%;min-height:14px}
+#map{flex:1;min-height:0}
+.box-label{background:#fff;border:1px solid #284b36;border-radius:4px;padding:1px 4px;font-weight:bold;font-size:11px;color:#163b27;box-shadow:0 1px 3px #0005;white-space:nowrap}
+.user-dot{width:16px;height:16px;background:#1677ff;border:3px solid white;border-radius:50%;box-shadow:0 0 0 2px #1677ff}
+.legend{background:white;padding:7px 9px;border-radius:5px;box-shadow:0 1px 5px #0004;font-size:12px;line-height:1.5}
+@media(max-width:600px){header{padding:8px}#search{width:120px}button,input{padding:7px;font-size:13px}header strong{font-size:14px}}
+</style>
+</head>
+<body>
+<div id="app">
+<header>
+ <div><strong>📍 Cajas nido · Prados del Rubio</strong><br><small id="count">Cargando puntos…</small></div>
+ <div id="controls">
+  <input id="search" placeholder="Buscar caja (p. ej. 25)" aria-label="Buscar caja">
+  <button id="locate" class="primary">Mi posición GPS</button>
+  <button id="add">Añadir caja</button>
+  <button id="export">Exportar KML</button>
+ </div>
+ <div id="status" role="status">Mapa con ortofoto. Para usar el GPS, permite la ubicación en el navegador.</div>
+</header>
+<div id="map"></div>
+</div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const original = [{"name": "Caja 27", "lon": -2.5110433, "lat": 37.2382183, "alt": 1812.58}, {"name": "Caja 28", "lon": -2.5111733, "lat": 37.2385267, "alt": 1826.36}, {"name": "Caja 34", "lon": -2.5130383, "lat": 37.2381633, "alt": 1871.74}, {"name": "Caja 33", "lon": -2.512375, "lat": 37.2382383, "alt": 1874.26}, {"name": "Caja 30", "lon": -2.5115967, "lat": 37.2375883, "alt": 1875.69}, {"name": "Caja 25", "lon": -2.511965, "lat": 37.2377517, "alt": 0.0}, {"name": "caja 24", "lon": -2.5117217, "lat": 37.2377683, "alt": 0.0}, {"name": "caja 23", "lon": -2.5111733, "lat": 37.237415, "alt": 1787.07}, {"name": "Caja 26", "lon": -2.5111867, "lat": 37.2379567, "alt": 1780.24}, {"name": "Caja 44", "lon": -2.513235, "lat": 37.2362067, "alt": 0.0}, {"name": "Caja 44", "lon": -2.5133117, "lat": 37.2362067, "alt": 1848.28}, {"name": "Caja 39", "lon": -2.51275, "lat": 37.2353983, "alt": 1820.5}, {"name": "Caja 3", "lon": -2.5130633, "lat": 37.2358883, "alt": 1831.53}, {"name": "Caja 2", "lon": -2.512615, "lat": 37.23573, "alt": 1826.98}, {"name": "Caja 18", "lon": -2.5117917, "lat": 37.2357617, "alt": 1832.26}, {"name": "Caja 19", "lon": -2.5111917, "lat": 37.2358483, "alt": 1814.47}, {"name": "Caja 10", "lon": -2.511235, "lat": 37.2361167, "alt": 0.0}, {"name": "Caja 1", "lon": -2.5114317, "lat": 37.2361583, "alt": 1820.23}, {"name": "Caja 20", "lon": -2.5104283, "lat": 37.2362717, "alt": 1817.82}, {"name": "Caja 21", "lon": -2.510705, "lat": 37.23659, "alt": 1798.66}, {"name": "Caja 22", "lon": -2.51118, "lat": 37.23677, "alt": 1807.47}, {"name": "Caja 12", "lon": -2.511895, "lat": 37.23689, "alt": 0.0}, {"name": "Caja 14", "lon": -2.51217, "lat": 37.2366283, "alt": 0.0}, {"name": "Caja 15", "lon": -2.5127933, "lat": 37.2363167, "alt": 0.0}, {"name": "Caja 4", "lon": -2.5136433, "lat": 37.2356683, "alt": 1825.76}, {"name": "Caja 5", "lon": -2.5135667, "lat": 37.2352783, "alt": 1822.13}, {"name": "Caja 9", "lon": -2.5133667, "lat": 37.2349567, "alt": 1820.66}, {"name": "Caja 8", "lon": -2.5134967, "lat": 37.2344383, "alt": 1853.33}, {"name": "Caja 7", "lon": -2.5141133, "lat": 37.2347483, "alt": 1858.19}, {"name": "Caja 6", "lon": -2.5138083, "lat": 37.2350517, "alt": 1863.23}, {"name": "P2", "lon": -2.510306128144983, "lat": 37.23708434280559, "alt": 0.0}, {"name": "P12", "lon": -2.509921556474362, "lat": 37.23712961992977, "alt": 0.0}, {"name": "P8", "lon": -2.5095377269993, "lat": 37.23731159722261, "alt": 0.0}, {"name": "P10", "lon": -2.509289969862937, "lat": 37.23735092940145, "alt": 0.0}, {"name": "P4", "lon": -2.509116546917962, "lat": 37.23747779577305, "alt": 0.0}, {"name": "P14", "lon": -2.50886065430151, "lat": 37.23776705599196, "alt": 0.0}, {"name": "P6", "lon": -2.508591961691359, "lat": 37.2380211115259, "alt": 0.0}, {"name": "P16", "lon": -2.508388212498764, "lat": 37.2383040776083, "alt": 0.0}, {"name": "P3", "lon": -2.509845615145567, "lat": 37.23678719811063, "alt": 0.0}, {"name": "P15", "lon": -2.50920045724235, "lat": 37.23684180915375, "alt": 0.0}, {"name": "P7", "lon": -2.508907704086082, "lat": 37.23712411798572, "alt": 0.0}, {"name": "P1", "lon": -2.508632677405588, "lat": 37.23735095236647, "alt": 0.0}, {"name": "P13", "lon": -2.508358483284185, "lat": 37.23744933651474, "alt": 0.0}, {"name": "P11", "lon": -2.508109727774575, "lat": 37.23786490794826, "alt": 0.0}, {"name": "P5", "lon": -2.50765839461549, "lat": 37.23782600087454, "alt": 0.0}, {"name": "P9", "lon": -2.507319018984865, "lat": 37.23815382261746, "alt": 0.0}, {"name": "Caja 11", "lon": -2.51224870491822, "lat": 37.23666584254687, "alt": 0.0}, {"name": "Caja 35", "lon": -2.512485151076476, "lat": 37.23783194783636, "alt": 0.0}, {"name": "Caja 45", "lon": -2.512012968007478, "lat": 37.23891368938273, "alt": 0.0}, {"name": "Caja 46", "lon": -2.511668049980812, "lat": 37.23887284190658, "alt": 0.0}, {"name": "Caja 47", "lon": -2.511366126963225, "lat": 37.23900647365399, "alt": 0.0}, {"name": "Caja 42", "lon": -2.511802988131525, "lat": 37.23514928743079, "alt": 0.0}, {"name": "Caja 41", "lon": -2.511679121277434, "lat": 37.23512473658976, "alt": 0.0}, {"name": "Caja 43", "lon": -2.511364612312332, "lat": 37.23494013319977, "alt": 0.0}, {"name": "40", "lon": -2.511477805149743, "lat": 37.23487148477397, "alt": 0.0}, {"name": "Caja 50", "lon": -2.521377738089986, "lat": 37.24489758073931, "alt": 0.0}, {"name": "Caja 53", "lon": -2.519846369274396, "lat": 37.24454580449137, "alt": 0.0}, {"name": "Caja 57", "lon": -2.51850208177861, "lat": 37.244921982745, "alt": 0.0}, {"name": "Caja 59", "lon": -2.518421301846402, "lat": 37.24462115284324, "alt": 0.0}, {"name": "Caja 58", "lon": -2.518250782541862, "lat": 37.24483682024633, "alt": 0.0}, {"name": "Caja 60", "lon": -2.518174738064243, "lat": 37.24438275371793, "alt": 0.0}, {"name": "Caja 62", "lon": -2.517984334166088, "lat": 37.24476962563368, "alt": 0.0}, {"name": "Caja 64", "lon": -2.517726303681629, "lat": 37.24456122904716, "alt": 0.0}, {"name": "Caja 61", "lon": -2.517619484474587, "lat": 37.244218222337, "alt": 0.0}, {"name": "Caja 66", "lon": -2.51747136277421, "lat": 37.24445801997912, "alt": 0.0}, {"name": "Caja 63", "lon": -2.517227562703992, "lat": 37.2437869080898, "alt": 0.0}, {"name": "Caja 65", "lon": -2.516662248556935, "lat": 37.24343301529505, "alt": 0.0}, {"name": "Caja 69", "lon": -2.516585559240073, "lat": 37.24367009838732, "alt": 0.0}, {"name": "Caja 70", "lon": -2.51620298212487, "lat": 37.24354232534515, "alt": 0.0}, {"name": "Caja 67", "lon": -2.516242450954051, "lat": 37.24324799517335, "alt": 0.0}, {"name": "Caja 71", "lon": -2.515855329828735, "lat": 37.24324340803965, "alt": 0.0}, {"name": "72", "lon": -2.514278965089326, "lat": 37.24259242233397, "alt": 0.0}, {"name": "73", "lon": -2.514384310250051, "lat": 37.24198891820262, "alt": 0.0}, {"name": "74", "lon": -2.512818793094473, "lat": 37.24173009659024, "alt": 0.0}, {"name": "75", "lon": -2.513484443932422, "lat": 37.24166072148714, "alt": 0.0}, {"name": "76", "lon": -2.514500234198739, "lat": 37.24149362497536, "alt": 0.0}, {"name": "85", "lon": -2.51160332291985, "lat": 37.23964286169279, "alt": 0.0}, {"name": "81", "lon": -2.512084388585558, "lat": 37.24022173921421, "alt": 0.0}, {"name": "86", "lon": -2.512539881629333, "lat": 37.23952052495492, "alt": 0.0}, {"name": "87", "lon": -2.51355460247776, "lat": 37.23951568359852, "alt": 0.0}, {"name": "88", "lon": -2.514782952146434, "lat": 37.23960184884039, "alt": 0.0}, {"name": "82", "lon": -2.512918268632686, "lat": 37.24028826989773, "alt": 0.0}, {"name": "83", "lon": -2.513695895241978, "lat": 37.24033653576185, "alt": 0.0}, {"name": "84", "lon": -2.514732366372144, "lat": 37.24045796932859, "alt": 0.0}, {"name": "77", "lon": -2.511852046606271, "lat": 37.2412844306593, "alt": 0.0}, {"name": "78", "lon": -2.513048281567361, "lat": 37.24110907631351, "alt": 0.0}, {"name": "79", "lon": -2.514063197331132, "lat": 37.24107718954196, "alt": 0.0}, {"name": "80", "lon": -2.512193760804899, "lat": 37.24074500035012, "alt": 0.0}, {"name": "89", "lon": -2.514067141631366, "lat": 37.23870652990713, "alt": 0.0}, {"name": "90", "lon": -2.515095492835743, "lat": 37.23833215810554, "alt": 0.0}, {"name": "91", "lon": -2.514910999467876, "lat": 37.23721366898661, "alt": 0.0}];
+const storageKey = 'cajasNidoPradosRubio_extra_v1';
+let extra = [];
+try { extra = JSON.parse(localStorage.getItem(storageKey) || '[]'); if (!Array.isArray(extra)) extra=[]; } catch(e) { extra=[]; }
+const all = () => [...original, ...extra];
+const map = L.map('map');
+const imagery = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+ maxZoom: 19, attribution: 'Tiles © Esri'
+}).addTo(map);
+L.control.scale({metric:true,imperial:false}).addTo(map);
+const markers = [];
+let userMarker = null, userCircle = null, addMode = false;
+const status = document.getElementById('status');
+function setStatus(t) { status.textContent=t; }
+function googleLink(p) { return 'https://www.google.com/maps?q='+p.lat+','+p.lon; }
+function drawBox(p, isExtra=false) {
+ const marker = L.marker([p.lat,p.lon], {icon:L.divIcon({className:'',html:'<span class="box-label">'+escapeHtml(p.name)+'</span>',iconSize:null,iconAnchor:[10,12]})}).addTo(map);
+ const popup = '<b>'+escapeHtml(p.name)+'</b>'+(isExtra?'<br><i>Añadida desde este mapa</i>':'')+
+ '<br>Latitud: '+p.lat.toFixed(6)+'<br>Longitud: '+p.lon.toFixed(6)+
+ '<br><a href="'+googleLink(p)+'" target="_blank" rel="noopener">Abrir en Google Maps</a>';
+ marker.bindPopup(popup);
+ marker.bindTooltip(p.name);
+ marker._boxData=p;
+ markers.push(marker);
+}
+function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function refresh() {
+ markers.forEach(m=>map.removeLayer(m)); markers.length=0;
+ original.forEach(p=>drawBox(p,false)); extra.forEach(p=>drawBox(p,true));
+ document.getElementById('count').textContent=all().length+' cajas nido · '+original.length+' del archivo y '+extra.length+' añadidas aquí';
+}
+refresh();
+const bounds=L.latLngBounds(all().map(p=>[p.lat,p.lon]));
+map.fitBounds(bounds.pad(0.12));
+document.getElementById('search').addEventListener('input',e=>{
+ const q=e.target.value.trim().toLowerCase();
+ if(!q){map.fitBounds(L.latLngBounds(all().map(p=>[p.lat,p.lon])).pad(0.12));return;}
+ const matches=all().filter(p=>p.name.toLowerCase().includes(q));
+ if(matches.length===1){map.setView([matches[0].lat,matches[0].lon],18);const m=markers.find(m=>m._boxData===matches[0] || (m._boxData.name===matches[0].name && m._boxData.lat===matches[0].lat));if(m)m.openPopup();}
+ else if(matches.length>1){map.fitBounds(L.latLngBounds(matches.map(p=>[p.lat,p.lon])).pad(0.2));setStatus('Coincidencias: '+matches.length+'. Refina la búsqueda.');}
+ else setStatus('No se encuentra ninguna caja con ese texto.');
+});
+document.getElementById('locate').addEventListener('click',()=>{
+ if(!navigator.geolocation){setStatus('Este navegador no permite geolocalización.');return;}
+ setStatus('Solicitando ubicación GPS…');
+ navigator.geolocation.getCurrentPosition(pos=>{
+  const lat=pos.coords.latitude, lon=pos.coords.longitude;
+  if(userMarker)map.removeLayer(userMarker); if(userCircle)map.removeLayer(userCircle);
+  userMarker=L.marker([lat,lon],{icon:L.divIcon({className:'',html:'<div class="user-dot"></div>',iconSize:[22,22],iconAnchor:[11,11]})}).addTo(map).bindPopup('Tu posición actual<br>Precisión aproximada: '+Math.round(pos.coords.accuracy)+' m').openPopup();
+  userCircle=L.circle([lat,lon],{radius:pos.coords.accuracy,color:'#1677ff',weight:1,fillOpacity:0.08}).addTo(map);
+  const nearest=all().map(p=>({p,d:map.distance([lat,lon],[p.lat,p.lon])})).sort((a,b)=>a.d-b.d)[0];
+  map.setView([lat,lon],17);
+  setStatus('GPS localizado. Caja más cercana: '+nearest.p.name+' ('+formatDistance(nearest.d)+').');
+ },err=>{
+  let msg='No se pudo obtener la ubicación.';
+  if(err.code===1)msg='Permiso de ubicación denegado. Actívalo en los permisos del navegador.';
+  if(err.code===2)msg='Ubicación no disponible. Comprueba el GPS o la conexión.';
+  if(err.code===3)msg='La solicitud GPS ha tardado demasiado. Inténtalo de nuevo.';
+  setStatus(msg+' Para el GPS, abre la página publicada en HTTPS (por ejemplo, GitHub Pages), no solo el archivo descargado.');
+ },{enableHighAccuracy:true,timeout:15000,maximumAge:5000});
+});
+function formatDistance(m){return m<1000?Math.round(m)+' m':(m/1000).toFixed(2)+' km';}
+document.getElementById('add').addEventListener('click',()=>{
+ addMode=!addMode;
+ document.getElementById('add').textContent=addMode?'Cancelar añadido':'Añadir caja';
+ map.getContainer().style.cursor=addMode?'crosshair':'';
+ setStatus(addMode?'Pulsa en el mapa donde está la nueva caja nido.':'Modo de añadir cancelado.');
+});
+map.on('click',e=>{
+ if(!addMode)return;
+ const next=prompt('Nombre o número de la nueva caja nido (por ejemplo, Caja 92):');
+ if(!next || !next.trim()){setStatus('No se ha añadido ninguna caja.');return;}
+ const p={name:next.trim(),lat:+e.latlng.lat.toFixed(7),lon:+e.latlng.lng.toFixed(7),alt:0};
+ extra.push(p);
+ try{localStorage.setItem(storageKey,JSON.stringify(extra));}catch(err){}
+ refresh(); addMode=false;document.getElementById('add').textContent='Añadir caja';map.getContainer().style.cursor='';
+ const m=markers[markers.length-1];if(m)m.openPopup();
+ setStatus(p.name+' añadida en este navegador. Pulsa «Exportar KML» para guardar un archivo con todas las cajas.');
+});
+document.getElementById('export').addEventListener('click',()=>{
+ const placemarks=all().map(p=>'<Placemark><name>'+escapeXml(p.name)+'</name><Point><coordinates>'+p.lon+','+p.lat+','+(p.alt||0)+'</coordinates></Point></Placemark>').join('');
+ const kml='<?xml version="1.0" encoding="UTF-8"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>Cajas nido Prados del Rubio</name>'+placemarks+'</Document></kml>';
+ const blob=new Blob([kml],{type:'application/vnd.google-earth.kml+xml;charset=utf-8'});
+ const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='Cajas_nido_Prados_del_Rubio_actualizado.kml';a.click();URL.revokeObjectURL(url);
+ setStatus('KML exportado con '+all().length+' cajas.');
+});
+function escapeXml(s){return String(s).replace(/[<>&"']/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&apos;'}[c]));}
+L.control.layers({'Ortofoto':imagery, 'Mapa de calles':L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors'})}).addTo(map);
+</script>
+</body>
+</html>
